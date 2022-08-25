@@ -23,7 +23,6 @@ const initialState = {
         'Go through 6 courses, 3 on React/Next/Typescript and 3 on Node/Vanilla js',
     },
   ],
-  editing: null,
 }
 
 function reducer(state, action) {
@@ -50,10 +49,8 @@ function reducer(state, action) {
             result_3: '',
           },
         ],
-        editing: new Date().valueOf(),
       }
     case 'edit':
-      // const { id, text, name } = action.payload
       return {
         ...state,
         okrs: state.okrs.map((o) => (o.id === id ? { ...o, [name]: text } : o)),
@@ -103,10 +100,6 @@ function reducer(state, action) {
         ...state,
         okrs: orderedOjects,
       }
-      return {
-        ...state,
-        okrs: deleteOkrOrResult(name),
-      }
     default:
       throw new Error()
   }
@@ -116,12 +109,13 @@ const Okrs = () => {
   const [state, dispatch] = useReducer(reducer, initialState)
   const [input, setInput] = useState('')
   const [showInput, setShowInput] = useState([null, 0])
-  //const [items, setItems] = useState(null)
+
   // TODO: set up refs to focus respective inputs onclick as described below
   // https://stackoverflow.com/questions/52448143/how-to-deal-with-a-ref-within-a-loop
   // https://reactjs.org/docs/refs-and-the-dom.html#callback-refs
 
   const baseUrl = 'https://e4f13pkfgb.execute-api.us-east-1.amazonaws.com/items'
+
   useEffect(() => {
     const getOkrs = async () => {
       try {
