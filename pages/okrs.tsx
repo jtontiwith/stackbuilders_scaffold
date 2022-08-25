@@ -1,47 +1,13 @@
-import React from 'react'
+import React, { useEffect, useReducer, useState } from 'react'
+import axios from 'axios'
 import Input from '../src/components/Input'
 import Layout from '../src/components/Layout'
 import BaseButton from '../src/components/BaseButton'
 import BaseList from '../src/components/BaseList'
 import BaseListItem from '../src/components/BaseListItem'
 // import NestedLayout from '../src/components/NestedLayout'
-import { useReducer, useState } from 'react'
 import { ReactElement } from 'react'
 import { splitStr } from '../src/utils/utils.js'
-
-// TODO:
-/*
-  DONE-take out id
-  DONE-make font bold
-  -write helper function to manipulate string
-  
-
-  I should...
-    -finish the whole thing as best as I can 
-      DONE-add and delete results
-      DONE-don't show "objective" placeholder
-      DONE-get rid of the underscore on the result
-      -make it soe "add key result" doesn't disappear
-      -space close and delete
-      DONE-delete objective?
-      DONE-close input on enter
-      2-add a little bit of design
-      3-clean it up, ensure best practices
-      3-connect it up to a db
-        -cloud formation...
-      4-convert it to typescript
-      5-testing
-      
-
-
-    -convert it to typescript
-    -put testing into it
-    -write a read.me to talk about design decisions
-    -connect it up to lambda, db, etc (perhaps first just localStorage)
-    -put it in my portfolio
-    -maybe for each technique I can write a little medium article and do it that way
-
-*/
 
 const initialState = {
   text: '',
@@ -60,8 +26,6 @@ const initialState = {
   editing: null,
 }
 
-// REDUCER FUNCTIONS
-
 function reducer(state, action) {
   // TODO: extract this out into a hook?
   const { id, text, name } = action.payload
@@ -79,8 +43,8 @@ function reducer(state, action) {
         okrs: [
           ...state.okrs,
           {
-            id: new Date().valueOf(),
-            objective: state.text, // action.payload
+            id: new Date().valueOf(), // easy temp id
+            objective: state.text,
             result_1: '',
             result_2: '',
             result_3: '',
@@ -118,7 +82,27 @@ function reducer(state, action) {
           })
         }
       }
-
+      return {
+        ...state,
+        okrs: deleteOkrOrResult(name),
+      }
+    case 'sync_db':
+      const objOrder = {
+        id: null,
+        objective: null,
+        result_1: null,
+        result_2: null,
+        result_3: null,
+      }
+      const orderedOjects = []
+      for (const obj of action.payload.Items) {
+        const orderedOject = { ...objOrder, ...obj }
+        orderedOjects.push(orderedOject)
+      }
+      return {
+        ...state,
+        okrs: orderedOjects,
+      }
       return {
         ...state,
         okrs: deleteOkrOrResult(name),
@@ -132,18 +116,74 @@ const Okrs = () => {
   const [state, dispatch] = useReducer(reducer, initialState)
   const [input, setInput] = useState('')
   const [showInput, setShowInput] = useState([null, 0])
+  //const [items, setItems] = useState(null)
   // TODO: set up refs to focus respective inputs onclick as described below
   // https://stackoverflow.com/questions/52448143/how-to-deal-with-a-ref-within-a-loop
+  // https://reactjs.org/docs/refs-and-the-dom.html#callback-refs
+
+  const baseUrl = 'https://e4f13pkfgb.execute-api.us-east-1.amazonaws.com/items'
+  useEffect(() => {
+    const getOkrs = async () => {
+      try {
+        const res = await axios.get(baseUrl)
+        dispatch({ type: 'sync_db', payload: res.data })
+      } catch (err) {
+        console.log('error msg here >>> ', err)
+      }
+    }
+    getOkrs()
+  }, [])
+
+  // HANDLERS
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter') setShowInput([null, 0])
-    // TODO: could you write something here so that it opens the next result...
+    // TODO: Write something here so that it opens the next result...
+  }
+
+  const handleDelete = (data) => {
+    if (data.name === 'objective') {
+      deleteReq(data.id)
+    }
+  }
+
+  // API REQUESTS
+
+  const putReq = (id) => {
+    const data = () => {
+      if (id) {
+        return state.okrs.filter((o) => o.id === id)[0]
+      } else {
+        return {
+          id: new Date().valueOf().toString(), // easy temp id
+          objective: state.text,
+          result_1: '',
+          result_2: '',
+          result_3: '',
+        }
+      }
+    }
+
+    try {
+      const res = axios.put(baseUrl, data())
+    } catch (err) {
+      console.log('error msg >>> ', err)
+    }
+  }
+
+  const deleteReq = (id) => {
+    const url = baseUrl + '/' + id
+
+    try {
+      const res = axios.delete(url)
+    } catch (err) {
+      console.log('error msg >>> ', err)
+    }
   }
 
   return (
     <>
       <div className="flex">
-        {/* <Input onChange={(e) => setInput(e.target.value)} value={input} /> */}
         <Input
           onChange={(e) =>
             dispatch({ type: 'on_change', payload: e.target.value })
@@ -152,11 +192,13 @@ const Okrs = () => {
           placeholder={'Write your objective...'}
         />
         <BaseButton
-          onClick={() => dispatch({ type: 'add', payload: input })}
+          onClick={() => {
+            dispatch({ type: 'add', payload: input })
+            putReq()
+          }}
           text={'Create Objective'}
         />
       </div>
-      {/* {<pre>{JSON.stringify(state, null, 2)}</pre>}} */}
       {state.okrs.map((okr, i) => (
         <div className="py-4" key={i}>
           <BaseList>
@@ -185,24 +227,36 @@ const Okrs = () => {
                         inline={true}
                         placeholder={'key result...'}
                       />
-                      <a href="#" onClick={() => setShowInput([null, 0])}>
-                        close
-                      </a>
-                      <div>
-                        {'\u00A0'}|{'\u00A0'}
-                      </div>
                       <a
                         href="#"
                         onClick={() => {
-                          dispatch({
-                            type: 'delete',
-                            payload: { id: okr.id, name: name },
-                          })
                           setShowInput([null, 0])
+                          putReq(okr.id)
                         }}
                       >
-                        delete
+                        close
                       </a>
+                      {j === 0 && (
+                        <>
+                          <div>
+                            {'\u00A0'}|{'\u00A0'}
+                          </div>
+
+                          <a
+                            href="#"
+                            onClick={() => {
+                              dispatch({
+                                type: 'delete',
+                                payload: { id: okr.id, name: name },
+                              })
+                              setShowInput([null, 0])
+                              handleDelete({ name, id: okr.id })
+                            }}
+                          >
+                            delete
+                          </a>
+                        </>
+                      )}
                     </div>
                   ) : (
                     <>
@@ -233,7 +287,11 @@ const Okrs = () => {
           </BaseList>
         </div>
       ))}
-      {/* {<BaseButton text="make okr" />} */}
+
+      {/* {<pre>{JSON.stringify(state, null, 2)}</pre>}} */}
+      <div className="mt-12">
+        {/* {items && <pre>{JSON.stringify(items, null, 2)}</pre>} */}
+      </div>
     </>
   )
 }
