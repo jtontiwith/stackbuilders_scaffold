@@ -11,18 +11,7 @@ import { splitStr } from '../src/utils/utils.js'
 
 const initialState = {
   text: '',
-  okrs: [
-    {
-      id: 0, // new Date().valueOf(),
-      objective:
-        'Getting a jobs that pays 7k+ per month within the next 45 days',
-      result_1: 'Be able to destroy all the algo challenges on CodeSignal',
-      result_2:
-        'Write a short blog article with accompanying code for 10 different React and Next.js concepts.',
-      result_3:
-        'Go through 6 courses, 3 on React/Next/Typescript and 3 on Node/Vanilla js',
-    },
-  ],
+  okrs: [],
 }
 
 function reducer(state, action) {
@@ -193,6 +182,7 @@ const Okrs = () => {
           text={'Create Objective'}
         />
       </div>
+      {!state.okrs.length && <div>no okrs yet!</div>}
       {state.okrs.map((okr, i) => (
         <div className="py-4" key={i}>
           <BaseList>
@@ -216,7 +206,10 @@ const Okrs = () => {
                             },
                           })
                         }
-                        onKeyPress={(e) => handleKeyPress(e)}
+                        onKeyPress={(e) => {
+                          handleKeyPress(e)
+                          putReq(okr.id)
+                        }}
                         defaultValue={value}
                         inline={true}
                         placeholder={'key result...'}
