@@ -9,6 +9,14 @@ import BaseListItem from '../src/components/BaseListItem'
 import { ReactElement } from 'react'
 import { splitStr } from '../src/utils/utils.js'
 
+/*
+
+-fix why results are not saving
+-fix that when you click on a result you can actually type
+-when you click enter on a result it goes to the next one
+
+*/
+
 const initialState = {
   text: '',
   okrs: [],
@@ -25,19 +33,11 @@ function reducer(state, action) {
         text: action.payload,
       }
     case 'add':
+      console.log(action.payload)
       return {
         ...state,
         text: '',
-        okrs: [
-          ...state.okrs,
-          {
-            id: new Date().valueOf(), // easy temp id
-            objective: state.text,
-            result_1: '',
-            result_2: '',
-            result_3: '',
-          },
-        ],
+        okrs: [...state.okrs, action.payload],
       }
     case 'edit':
       return {
@@ -94,9 +94,21 @@ function reducer(state, action) {
   }
 }
 
+/*
+-what is happening?
+  -what's happening is that when I create an objective, I am creating the object
+  in two different places, once in the state and once in the request handler, so
+  what happen is they have different ids, but when I try to create one in state 
+  and then pass it into the request handler that doesn't work because I call them
+  at the same time and the state isn't finished resolving before try to use it 
+  in the request handler
+
+
+
+*/
+
 const Okrs = () => {
   const [state, dispatch] = useReducer(reducer, initialState)
-  const [input, setInput] = useState('')
   const [showInput, setShowInput] = useState([null, 0])
 
   // TODO: set up refs to focus respective inputs onclick as described below
@@ -106,6 +118,7 @@ const Okrs = () => {
   const baseUrl = 'https://e4f13pkfgb.execute-api.us-east-1.amazonaws.com/items'
 
   useEffect(() => {
+    console.log('useEffect running here')
     const getOkrs = async () => {
       try {
         const res = await axios.get(baseUrl)
@@ -119,8 +132,12 @@ const Okrs = () => {
 
   // HANDLERS
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = (e, id) => {
     if (e.key === 'Enter') setShowInput([null, 0])
+    if (id && e.key === 'Enter') {
+      console.log('id from inside handleKeyPress here ', typeof id)
+      putReq(id)
+    }
     // TODO: Write something here so that it opens the next result...
   }
 
@@ -135,15 +152,21 @@ const Okrs = () => {
   const putReq = (id) => {
     const data = () => {
       if (id) {
+        console.log('this runs from inside if (id)')
         return state.okrs.filter((o) => o.id === id)[0]
       } else {
-        return {
+        console.log('this runs from inside else')
+
+        // return state.okrs[state.okrs.length - 1]
+        const objective = {
           id: new Date().valueOf().toString(), // easy temp id
           objective: state.text,
           result_1: '',
           result_2: '',
           result_3: '',
         }
+        dispatch({ type: 'add', payload: objective })
+        return objective
       }
     }
 
@@ -176,8 +199,7 @@ const Okrs = () => {
         />
         <BaseButton
           onClick={() => {
-            dispatch({ type: 'add', payload: input })
-            putReq()
+            putReq(null)
           }}
           text={'Create Objective'}
         />
@@ -206,10 +228,7 @@ const Okrs = () => {
                             },
                           })
                         }
-                        onKeyPress={(e) => {
-                          handleKeyPress(e)
-                          putReq(okr.id)
-                        }}
+                        onKeyPress={(e) => handleKeyPress(e, okr.id)}
                         defaultValue={value}
                         inline={true}
                         placeholder={'key result...'}
@@ -274,8 +293,7 @@ const Okrs = () => {
           </BaseList>
         </div>
       ))}
-
-      {/* {<pre>{JSON.stringify(state, null, 2)}</pre>}} */}
+      {<pre>{JSON.stringify(state, null, 2)}</pre>}
       <div className="mt-12">
         {/* {items && <pre>{JSON.stringify(items, null, 2)}</pre>} */}
       </div>
