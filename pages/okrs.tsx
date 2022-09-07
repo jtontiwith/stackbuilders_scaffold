@@ -293,7 +293,7 @@ const Okrs = () => {
           </BaseList>
         </div>
       ))}
-      {<pre>{JSON.stringify(state, null, 2)}</pre>}
+      {/* {<pre>{JSON.stringify(state, null, 2)}</pre>} */}
       <div className="mt-12">
         {/* {items && <pre>{JSON.stringify(items, null, 2)}</pre>} */}
       </div>
